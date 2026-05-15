@@ -21,5 +21,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveProgress: (data) =>
     ipcRenderer.send("save-progress", data),
 
+  start: () => ipcRenderer.send("start-voice"),
+  
+  onResult: (cb) => {
+  ipcRenderer.removeAllListeners("voice-input");
+
+  ipcRenderer.on("voice-input", (_, text) => {
+    cb(text);
+  });
+}
 
 });
