@@ -6,6 +6,53 @@ const axios = require("axios");
 let backendProcess;
 let currentMovie = "";
 let videowin = null;
+const vosk = require("vosk");
+const record = require("node-record-lpcm16");
+//main voice recognition code using vosk model
+const modelPath = path.join(__dirname, "vosk-model-small-en-in-0.4");
+const model = new vosk.Model(modelPath);
+const rec = new vosk.Recognizer({ model, sampleRate: 16000 });
+rec.setMaxAlternatives(0);
+rec.setWords(true);
+let mic = null;
+function startRecognition(mainWindow) {
+  rec.reset();
+
+  mic = record.record({
+    sampleRateHertz: 16000,
+    recordProgram: "arecord",
+    audioType: "raw",
+  });
+
+  mic.stream().on("data", (data) => {
+    rec.acceptWaveform(data);
+
+    const partial = rec.partialResult();
+    if (partial && partial.partial) {
+      console.log("partial:", partial.partial);
+    }
+  });
+
+  setTimeout(() => {
+    const result = rec.finalResult();
+
+    if (result.text) {
+      mainWindow.webContents.send("voice-input", result.text);
+    }
+
+    stopRecognition();
+  }, 5000);
+
+  console.log("Vosk started for 5 seconds");
+}
+function stopRecognition() {
+  if (mic) {
+    mic.stop();
+    mic = null;
+  }
+
+  console.log("Vosk stopped");
+}
 
 console.log("main process started");
 
@@ -123,7 +170,10 @@ ipcMain.on("save-progress", (event, data) => {
   }
 
 });
-
+ipcMain.on("start-voice", (event) => {
+  const win = BrowserWindow.getFocusedWindow();
+  startRecognition(win);
+});
 
 
 // ---------------- BACKEND ----------------
@@ -131,17 +181,12 @@ ipcMain.on("save-progress", (event, data) => {
 
 
 function startBackend() {
-const pythonCommand =
-  process.platform === "win32"
-    ? "python"
-    : "python3";
+const pythonCommand = path.join(__dirname, "../backend/venv/bin/python");
 
-  const uvicornPath = "uvicorn";
+
 
  backendProcess = spawn(
-
   pythonCommand,
-
   [
     "-m",
     "uvicorn",
@@ -151,13 +196,15 @@ const pythonCommand =
     "--port",
     "8000"
   ],
-
   {
     cwd: path.join(__dirname, "../backend"),
-    shell: true
+    shell: false
   }
-
 );
+  if (!backendProcess) {
+    console.error("Failed to start backend process");
+    return;
+  }
   backendProcess.stdout.on("data", (data) => {
     console.log(`PYTHON: ${data}`);
   });
