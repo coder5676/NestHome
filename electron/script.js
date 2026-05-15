@@ -1,5 +1,5 @@
 // dummy play video check
-/*document.getElementById("play").addEventListener("click", async () => {
+document.getElementById("weathericon").addEventListener("click", async () => {
 
   try {
 
@@ -14,27 +14,62 @@
     console.error("API ERROR:", err);
   }
 
-});*/
+});
 let longitude;
 let latitude;
 const now = new Date();
-
+let ampm;
 const day = now.getDay(); // 0–6
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-let hours = now.getHours();
-const minutes = now.getMinutes();
-const seconds = now.getSeconds();
+function updateClock() {
+  const now = new Date();
 
-const ampm = hours >= 12 ? "PM" : "AM";
+  let hours = now.getHours();
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
 
-// convert 24h → 12h format
-hours = hours % 12 || 12;
+ ampm = hours >= 12 ? "PM" : "AM";
 
-const time = `${hours}:${minutes}`;
+  // convert 24h → 12h format
+  hours = hours % 12 || 12;
+
+  const time = `${hours < 10 ? "0" + hours : hours}:${
+    minutes < 10 ? "0" + minutes : minutes
+  }`;
+
+  document.getElementById("time").innerText = time;
+
+   // Date
+
 const months = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December"
 ];
+  // Day name
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+
+
+  // Update DOM
+
+  document.getElementById("day").innerHTML =
+  `${now.getDate()}  ${weekdays[day]} .• ${months[now.getMonth()]} .• ${now.getFullYear()}`;
+}
+
+// run immediately
+updateClock();
+// update every second
+setInterval(updateClock, 1000);
+
+
 if(ampm=="AM"){
   document.getElementById("am").style.backgroundColor="black";
   document.getElementById("pm").style.backgroundColor="transparent";
@@ -44,33 +79,42 @@ else{
   document.getElementById("am").style.backgroundColor="transparent";
 
 }
-document.getElementById("time").innerHTML=time;
-document.getElementById("day").innerHTML =
-  `${now.getDate()}  ${weekdays[day]} .• ${months[now.getMonth()]} .• ${now.getFullYear()}`;
-function getlocation(){
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-           latitude=position.coords.latitude;
-          longitude=position.coords.longitude;
 
-          if (longitude!=null&&latitude!=null){
+async function getlocation() {
+  try {
+    // Using ipapi.co because it allows free HTTPS requests
+    const res = await fetch("http://ipapi.co");
+    
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+    
+    const data = await res.json();
 
-    getweatherbylocation(latitude,longitude)
+    // ipapi.co uses full names: 'latitude' and 'longitude'
+    let latitude = data.latitude;
+    let longitude = data.longitude;
+
+    console.log("Coordinates fetched:", longitude, latitude);
+
+    if (latitude && longitude) {
+      getweatherbylocation(latitude, longitude);
+    } else {
+      console.log("Location keys missing from response, using fallback");
+      getweatherbycity("Raebareli");
+    }
+
+  } catch (error) {
+    console.error("IP location error:", error);
+    // Fallback if API fails or network is down
+    getweatherbycity("Raebareli");
   }
-          },
-          (error) => {
-            console.error("Error Code = " + error.code + " - " + error.message);
-          }
-        );
-      } else {
-        console.log("Geolocation is not supported by this browser.");
-      }
-     
 }
-window.addEventListener("DOMContentLoaded", () => {
+
+// Ensure the code executes safely in Electron's lifecycle
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", getlocation);
+} else {
   getlocation();
-});
+}
 
 const audio=document.getElementById("musicplayer");
 const thumbnail=document.getElementById("thumbnail");
@@ -166,17 +210,12 @@ const response=await fetch(url);
 const response2=await fetch(url2);
 var data=await response.json();
 var data2=await response2.json();
-console.log(data);
-console.log(data2);
-document.getElementById("citytemp").innerHTML=data2.main.temp;
-document.getElementById("tempicon1").innerHTML=weathericon(data2.weather[0].description);
-document.getElementById("loader").style.display="none";
+setdetails(data2)
 
 }
 catch(err){
     document.getElementById("temp").innerHTML="🤕";
     document.getElementById("location").innerHTML="City not found..";
-    document.getElementById("description").innerHTML="Remove end spaces if any and try again...";
 console.log(err)
 
 
@@ -187,7 +226,7 @@ function setdetails(data){
   console.log(data);
    const description=data.weather[0].description;
   fg="humidity is "+data.main.humidity+"% with "+data.weather[0].description;
-  document.getElementById("temp").innerHTML=Math.round(data.main.temp)+" °";
+  document.getElementById("temp").innerHTML=Math.round(data.main.temp)+"°";
   document.getElementById("location").innerHTML=data.name +", "+data.sys.country;
   document.getElementById("desc").innerHTML=data.weather[0].main;
   document.getElementById("feels").innerHTML="Feels Like "+Math.round(data.main.feels_like)+"°";
@@ -200,46 +239,15 @@ function openweatherconsole(){
 
 
 }
-
-// speechrecognition functions
-const SpeechRecognition =
-  window.SpeechRecognition ||
-  window.webkitSpeechRecognition;
-
-if (!SpeechRecognition) {
-  console.log("Speech Recognition not supported");
-}
-console.log(window.webkitSpeechRecognition);
-const recognition = new SpeechRecognition();
-recognition.lang = "en-IN";
-function openassistant(){
-    recognition.start();
-    };
-recognition.onstart=function(){ 
-  console.log("speech started")
-
-    document.getElementById("sd").classList.add("active");
-    document.getElementById("sg").classList.add("active2");
-
-    };
-    recognition.onerror = (event) => {
-  console.log("ERROR:", event.error);
-};
- recognition.onend=function(){
-  console.log("speech ended")
-    document.getElementById("sd").classList.remove("active");
-    document.getElementById("sg").classList.remove("active2");
-  }
-    
-    recognition.onresult=(event)=>{
-    const transcript=String(event.results[0][0].transcript).toLowerCase();
-
-    console.log(transcript);
-    }
-
-    function closeassistant(){
-    recognition.stop();
-}
+console.log(window.electronAPI);
 document.getElementById("animation").addEventListener("click",()=>{
-  openassistant();
+  console.log("animation button clicked");
+  window.electronAPI.start();
 })
+/*window.voiceAPI.onResult((text) => {
+  console.log("You said:", text);
+  document.getElementById("prompt").innerText = text;
+
+  handleCommand(text);
+});*/
+
